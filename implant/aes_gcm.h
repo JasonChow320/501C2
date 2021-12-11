@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <stdio.h>
+#include <iostream>
 #include <string>
 
 #define NT_SUCCESS(Status)          (((NTSTATUS)(Status)) >= 0)
@@ -22,8 +23,10 @@ class AESGCM{
    
 
     public:
-        void Decrypt(BYTE* nonce, size_t nonceLen, BYTE* data, size_t dataLen, BYTE* macTag, size_t macTagLen);
+        int Decrypt(BYTE* nonce, size_t nonceLen, BYTE* data, size_t dataLen, BYTE* macTag, size_t macTagLen);
         void Encrypt(BYTE *nonce, size_t nonceLen, BYTE *data, size_t dataLen);
+        DWORD getBlockSize(void);
+        int VerifyTag(BYTE* nonce, size_t nonceLen, BYTE* macTag, size_t macTagLen);
          AESGCM(BYTE key[AES_256_KEY_SIZE]); // initialize with key 
          ~AESGCM();
         BYTE* tag = NULL; // pointer to message authentication code

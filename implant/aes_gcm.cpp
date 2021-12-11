@@ -72,12 +72,22 @@ AESGCM::AESGCM( BYTE key[AES_256_KEY_SIZE]){
    
 }
 
-/*
-https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptdecrypt
-*/
-void AESGCM::Decrypt(BYTE* nonce, size_t nonceLen, BYTE* data, size_t dataLen, BYTE* macTag, size_t macTagLen){
+DWORD AESGCM::getBlockSize(){
+    DWORD sizeOfIV, cbResult = 0;
+    nStatus = ::BCryptGetProperty(
+        hAlg,
+        BCRYPT_BLOCK_LENGTH,
+        (BYTE*)&sizeOfIV,
+        sizeof(sizeOfIV),
+        &cbResult,
+        0
+    );
+    return sizeOfIV;
+}
+
+int AESGCM::VerifyTag(BYTE* nonce, size_t nonceLen, BYTE* macTag, size_t macTagLen){
     if(!hKey){
-        return;
+        return 0;
     }
 
     // we need to initalize the BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO structure variable
@@ -87,14 +97,83 @@ void AESGCM::Decrypt(BYTE* nonce, size_t nonceLen, BYTE* data, size_t dataLen, B
     ::BCRYPT_INIT_AUTH_MODE_INFO(paddingInfo);
     paddingInfo.pbNonce = nonce;
     paddingInfo.cbNonce = nonceLen;
+    paddingInfo.pbAuthData = NULL;
+    paddingInfo.cbAuthData = 0;
     paddingInfo.pbTag = macTag;
     paddingInfo.cbTag = macTagLen;
+    paddingInfo.pbMacContext = NULL;
+    paddingInfo.cbMacContext = 0;
+    paddingInfo.cbAAD = 0;
+    paddingInfo.cbData = 0;
+    paddingInfo.dwFlags = 0;
 
-    BYTE* plaintextbuffer = (BYTE*)::HeapAlloc(GetProcessHeap(), 0, dataLen);
+    //verify padding
+    ULONG byteCopiedToBuffer = 0;
+    nStatus = ::BCryptDecrypt(
+        hKey,
+        NULL,
+        0,
+        &paddingInfo,
+        NULL,
+        nonceLen,
+        NULL,
+        0, 
+        &byteCopiedToBuffer,
+        0
+    );
+    if (!NT_SUCCESS(nStatus)){
+        printf("Something terrible has happened with the padding info:( 0x%x\n", nStatus);
+        return 1;
+    }
+    return byteCopiedToBuffer;
+}
+/*
+https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptdecrypt
+*/
+int AESGCM::Decrypt(BYTE* nonce, size_t nonceLen, BYTE* data, size_t dataLen, BYTE* macTag, size_t macTagLen){
+    if(!hKey){
+        return 1;
+    }
+
+    // we need to initalize the BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO structure variable
+    // https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/ns-bcrypt-bcrypt_authenticated_cipher_mode_info
+    // https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcrypt_init_auth_mode_info
+    BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO paddingInfo;
+    ::BCRYPT_INIT_AUTH_MODE_INFO(paddingInfo);
+    paddingInfo.pbNonce = nonce;
+    paddingInfo.cbNonce = nonceLen;
+    paddingInfo.pbAuthData = NULL;
+    paddingInfo.cbAuthData = 0;
+    paddingInfo.pbTag = macTag;
+    paddingInfo.cbTag = macTagLen;
+    paddingInfo.pbMacContext = NULL;
+    paddingInfo.cbMacContext = 0;
+    paddingInfo.cbAAD = 0;
+    paddingInfo.cbData = 0;
+    paddingInfo.dwFlags = 0;
+
+    ULONG byteCopiedToBuffer = 0;
+    nStatus = ::BCryptDecrypt(
+        hKey,
+        data,
+        dataLen,
+        &paddingInfo,
+        nonce,
+        nonceLen,
+        NULL,
+        dataLen, 
+        &byteCopiedToBuffer,
+        0
+    );
+    if (!NT_SUCCESS(nStatus)){
+        printf("Something terrible has happened :(\n");
+    }
+
+    BYTE* plaintextbuffer = (BYTE*)::HeapAlloc(GetProcessHeap(), 0, byteCopiedToBuffer);
     if(plaintextbuffer == NULL){
         wprintf(L"*** Failed to allocate memory for plaintext buffer\n");
     }
-    ULONG byteCopiedToBuffer = 0;
+
     nStatus = ::BCryptDecrypt(
         hKey,
         data,
@@ -109,12 +188,17 @@ void AESGCM::Decrypt(BYTE* nonce, size_t nonceLen, BYTE* data, size_t dataLen, B
     );
     if (!NT_SUCCESS(nStatus)){
         if(STATUS_MISMATCHTAG(nStatus)){
-            wprintf(L"**** Error, mac authenication failed (tag mismatch)\n");
+            //wprintf(L"**** Error, mac authenication failed (tag mismatch)\n");
         }
-        wprintf(L"**** Error 0x%x returned by BCryptEncrypt when calculating ciphertext size\n", nStatus);
-    }
-    plaintext = plaintextbuffer;
-    ptBufferSize = byteCopiedToBuffer;
+        //wprintf(L"**** Error 0x%x returned by BCryptEncrypt when calculating ciphertext size\n", nStatus);
+        ::HeapFree(GetProcessHeap(), 0, (LPVOID)plaintext);
+        plaintext = NULL;
+        return 1;
+    }else{
+        plaintext = plaintextbuffer;
+        ptBufferSize = byteCopiedToBuffer;
+    } 
+    return 0;
 }
 
 /*
