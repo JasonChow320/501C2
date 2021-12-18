@@ -44,14 +44,14 @@ int HTTP::checkConnection(){
     return 0;
 }
 
-string HTTP::makeHttpRequest(wstring method, wstring uri, bool useTLS){
+string HTTP::makeHttpRequest(wstring method, wstring uri, bool useTLS, DWORD* res){
     LPWSTR buffer;
     string result;
     BOOL bResults = false;
     DWORD dwSize = 0, dwDownloaded = 0;
     LPSTR pszOutBuffer;
     
-    //if connected to server, open a request
+    //if connected to server, set flags and open request
     if(hConnect){
         DWORD tls = 0;
         if(useTLS){
@@ -59,7 +59,8 @@ string HTTP::makeHttpRequest(wstring method, wstring uri, bool useTLS){
         }
         hRequest = WinHttpOpenRequest( hConnect, method.data(), uri.data(), NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, tls);
     }else{
-        wprintf(L"Have to connect to server first\n");
+        wprintf(L"Have to connect to server first\n"); 
+        *res = 1;
         return "nope:D";
     }
 
@@ -93,9 +94,11 @@ string HTTP::makeHttpRequest(wstring method, wstring uri, bool useTLS){
             bResults = WinHttpReceiveResponse( hRequest, NULL);
         }else{
             wprintf(L"Send error?? 0x%x\n", GetLastError());
+            *res = 1;
         }
     }else{
         wprintf(L"Couldn't Open request\n");
+        *res = 1;
         return "Couldn't open request";
     }
 
@@ -118,6 +121,7 @@ string HTTP::makeHttpRequest(wstring method, wstring uri, bool useTLS){
             buffer = new wchar_t[dwSize+1];
             if (!pszOutBuffer || !buffer){
                 printf("Out of memory\n");
+                *res = 1;
                 break;
             }
             
@@ -143,6 +147,6 @@ string HTTP::makeHttpRequest(wstring method, wstring uri, bool useTLS){
                 
         } while (dwSize > 0);
     }
-
+    *res = 0;
     return result;
 }

