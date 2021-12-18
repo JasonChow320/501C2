@@ -11,7 +11,5 @@ implant:
 	$(CXX) implant.cpp stealer.cpp base64.cpp rsa.cpp httpClient.cpp fileParser.cpp aes_gcm.cpp sqlite3.o $(LDFLAGS)
 sqlite3:
 	$(CC) -c sqlite3.c
-before:
-	$(CXX) stealer.cpp base64.cpp rsa.cpp httpClient.cpp fileParser.cpp aes_gcm.cpp sqlite3.o $(LDFLAGS) -o all.o
 clean:
 	rm *.exe *.o

